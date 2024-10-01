@@ -18,6 +18,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"github.com/prometheus-community/json_exporter/transformers"
 	"io"
 	"log/slog"
 	"math"
@@ -83,6 +84,22 @@ func CreateMetricsList(c config.Module) ([]JSONMetric, error) {
 		valueType prometheus.ValueType
 	)
 	for _, metric := range c.Metrics {
+		metricTransfomers := []transformers.Transformer{}
+		for _, tConfig := range metric.Transformations {
+			transformer, err := transformers.NewTransformer(tConfig) // Use the package reference here
+			if err != nil {
+				return nil, err
+			}
+			metricTransfomers = append(metricTransfomers, transformer)
+		}
+		switch metric.ValueType {
+		case config.ValueTypeGauge:
+			valueType = prometheus.GaugeValue
+		case config.ValueTypeCounter:
+			valueType = prometheus.CounterValue
+		default:
+			valueType = prometheus.UntypedValue
+		}
 		switch metric.ValueType {
 		case config.ValueTypeGauge:
 			valueType = prometheus.GaugeValue
@@ -110,6 +127,7 @@ func CreateMetricsList(c config.Module) ([]JSONMetric, error) {
 				LabelsJSONPaths:        variableLabelsValues,
 				ValueType:              valueType,
 				EpochTimestampJSONPath: metric.EpochTimestamp,
+				Transformers:           metricTransfomers, // Add transformers here
 			}
 			metrics = append(metrics, jsonMetric)
 		case config.ObjectScrape:
@@ -133,6 +151,7 @@ func CreateMetricsList(c config.Module) ([]JSONMetric, error) {
 					LabelsJSONPaths:        variableLabelsValues,
 					ValueType:              valueType,
 					EpochTimestampJSONPath: metric.EpochTimestamp,
+					Transformers:           metricTransfomers, // Add transformers here
 				}
 				metrics = append(metrics, jsonMetric)
 			}
