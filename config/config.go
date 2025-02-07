@@ -59,6 +59,7 @@ type Module struct {
 	HTTPClientConfig pconfig.HTTPClientConfig `yaml:"http_client_config,omitempty"`
 	Body             Body                     `yaml:"body,omitempty"`
 	ValidStatusCodes []int                    `yaml:"valid_status_codes,omitempty"`
+	EnableH2C        bool                     `yaml:"enable_h2c,omitempty"`
 }
 
 type Body struct {

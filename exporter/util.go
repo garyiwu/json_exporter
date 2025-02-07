@@ -15,21 +15,25 @@ package exporter
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"math"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 	"text/template"
+	"time"
 
 	"github.com/Masterminds/sprig/v3"
 	"github.com/prometheus-community/json_exporter/config"
 	"github.com/prometheus/client_golang/prometheus"
 	pconfig "github.com/prometheus/common/config"
+	"golang.org/x/net/http2"
 )
 
 func MakeMetricName(parts ...string) string {
@@ -160,10 +164,25 @@ func NewJSONFetcher(ctx context.Context, logger *slog.Logger, m config.Module, t
 
 func (f *JSONFetcher) FetchJSON(endpoint string) ([]byte, error) {
 	httpClientConfig := f.module.HTTPClientConfig
-	client, err := pconfig.NewClientFromConfig(httpClientConfig, "fetch_json", pconfig.WithKeepAlivesDisabled(), pconfig.WithHTTP2Disabled())
-	if err != nil {
-		f.logger.Error("Error generating HTTP client", "err", err)
-		return nil, err
+
+	var client *http.Client
+	var err error
+	if !f.module.EnableH2C {
+		client, err = pconfig.NewClientFromConfig(httpClientConfig, "fetch_json", pconfig.WithKeepAlivesDisabled(), pconfig.WithHTTP2Disabled())
+		if err != nil {
+			f.logger.Error("Error generating HTTP client", "err", err)
+			return nil, err
+		}
+	} else {
+		client = &http.Client{
+			Transport: &http2.Transport{
+				AllowHTTP: true,
+				DialTLS: func(network, addr string, _ *tls.Config) (net.Conn, error) {
+					return net.Dial(network, addr)
+				},
+			},
+			Timeout: 3 * time.Second,
+		}
 	}
 
 	var req *http.Request
