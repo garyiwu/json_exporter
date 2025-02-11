@@ -15,6 +15,7 @@ package transformers
 
 import (
 	"encoding/json"
+
 	"github.com/itchyny/gojq"
 )
 
@@ -56,6 +57,11 @@ func applyJQFilter(jsonData []byte, jqQuery string) ([]byte, error) {
 			return nil, err
 		}
 		results = append(results, v)
+	}
+
+	// return empty list if jq result is empty
+	if len(results) == 0 {
+		return []byte("[]"), nil
 	}
 
 	// Convert the transformed result back to JSON []byte
